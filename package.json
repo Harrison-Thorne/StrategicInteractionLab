@@ -1,0 +1,12 @@
+{
+  "name": "StrategicInteractionLab",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n server,client -c auto \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "postinstall": "npm --prefix server install && npm --prefix client install || true"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

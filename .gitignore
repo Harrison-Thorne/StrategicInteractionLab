@@ -1,0 +1,32 @@
+# Node
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+
+# Vite
+.vite/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# SQLite databases
+*.sqlite
+*.sqlite-journal
+server/database.sqlite
+
+# Misc
+.DS_Store
+.idea/
+.vscode/
+coverage/
+.nyc_output/
+*.tsbuildinfo
