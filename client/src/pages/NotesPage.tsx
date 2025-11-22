@@ -36,7 +36,27 @@ const NotesPage: React.FC = () => {
   }
 
   return (
-    <div className="container">
+    <div className="container page-animate">
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-header">
+          <div>
+            <h2 className="page-title">Research Notebook</h2>
+            <p className="page-subtitle">
+              Capture quick observations from arena runs or evaluation experiments.
+            </p>
+          </div>
+          <div className="section-meta">
+            <div className="pill">
+              <span className="pill-dot" />
+              Time-stamped notes
+            </div>
+            <div className="pill">
+              <span className="pill-dot accent" />
+              Per-user history
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <form onSubmit={addNote} className="row">
           <input
@@ -67,4 +87,3 @@ const NotesPage: React.FC = () => {
 };
 
 export default NotesPage;
-

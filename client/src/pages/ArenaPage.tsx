@@ -347,8 +347,30 @@ const ArenaPage: React.FC = () => {
   }), [tick, game.id]);
 
   return (
-    <div className="container">
+    <div className="container page-animate">
       <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-header">
+          <div>
+            <h2 className="page-title">Learning Dynamics Arena</h2>
+            <p className="page-subtitle">
+              Run repeated games and visualize how online learning converges under different incentives.
+            </p>
+          </div>
+          <div className="section-meta">
+            <div className="pill">
+              <span className="pill-dot" />
+              Real-time simulation
+            </div>
+            <div className="pill">
+              <span className="pill-dot accent" />
+              Socket.IO back-end
+            </div>
+            <div className="pill">
+              <span className="pill-dot" />
+              Heatmap + trajectory views
+            </div>
+          </div>
+        </div>
         <Controls
           gameId={gameId}
           setGameId={(id) => { setGameId(id); }}
@@ -370,19 +392,34 @@ const ArenaPage: React.FC = () => {
 
       <div className="col" style={{ gap: 16 }}>
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Average Reward (P1)</h3>
+          <div className="section-header">
+            <div>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Average Reward (P1)</h3>
+              <p className="page-subtitle">Smoothed rewards over time with a moving window.</p>
+            </div>
+          </div>
           <ChartBoundary>
             <ReactECharts echarts={echarts} option={rewardOption} style={{ height: 260 }} />
           </ChartBoundary>
         </div>
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Strategy Distribution (P1)</h3>
+          <div className="section-header">
+            <div>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Strategy Distribution (P1)</h3>
+              <p className="page-subtitle">Track how the mixed strategy evolves under Hedge updates.</p>
+            </div>
+          </div>
           <ChartBoundary>
             <ReactECharts echarts={echarts} option={probsOption} style={{ height: 300 }} />
           </ChartBoundary>
         </div>
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Joint Action Frequency</h3>
+          <div className="section-header">
+            <div>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Joint Action Frequency</h3>
+              <p className="page-subtitle">Empirical distribution over joint actions across the horizon.</p>
+            </div>
+          </div>
           <ChartBoundary>
             <ReactECharts echarts={echarts} option={heatOption} style={{ height: 320 }} />
           </ChartBoundary>

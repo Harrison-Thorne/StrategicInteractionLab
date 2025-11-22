@@ -143,9 +143,27 @@ const EvalPage: React.FC = () => {
   }), [winHist]);
 
   return (
-    <div className="container">
+    <div className="container page-animate">
       <div className="card" style={{ marginBottom: 16 }}>
-      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+        <div className="section-header">
+          <div>
+            <h2 className="page-title">Algorithm Evaluation Suite</h2>
+            <p className="page-subtitle">
+              Batch experiments across seeds and episodes to compare learning algorithms quantitatively.
+            </p>
+          </div>
+          <div className="section-meta">
+            <div className="pill">
+              <span className="pill-dot" />
+              Summary statistics
+            </div>
+            <div className="pill">
+              <span className="pill-dot accent" />
+              Distributional view
+            </div>
+          </div>
+        </div>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
           <div className="col">
             <div className="muted">Game</div>
             <select value={game} onChange={(e) => setGame(e.target.value as GameId)}>
@@ -196,21 +214,41 @@ const EvalPage: React.FC = () => {
 
       <div className="col" style={{ gap: 16 }}>
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>A Win Rate Histogram</h3>
+          <div className="section-header">
+            <div>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>A Win Rate Histogram</h3>
+              <p className="page-subtitle">Distribution of A&apos;s win rate across independent seeds.</p>
+            </div>
+          </div>
           <ReactECharts echarts={echarts} option={winHistOption} style={{ height: 260 }} />
         </div>
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Avg Reward by Episode</h3>
+          <div className="section-header">
+            <div>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Avg Reward by Episode</h3>
+              <p className="page-subtitle">Episode-level aggregation of average rewards for player A.</p>
+            </div>
+          </div>
           <ReactECharts echarts={echarts} option={rewardOption} style={{ height: 260 }} />
         </div>
         {game === 'pd' ? (
           <div className="card">
-            <h3 style={{ marginTop: 0 }}>Cooperation Rate (A)</h3>
+            <div className="section-header">
+              <div>
+                <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Cooperation Rate (A)</h3>
+                <p className="page-subtitle">How often player A chooses cooperative actions in PD.</p>
+              </div>
+            </div>
             <ReactECharts echarts={echarts} option={coopOption} style={{ height: 260 }} />
           </div>
         ) : (
           <div className="card">
-            <h3 style={{ marginTop: 0 }}>L2 Distance to Uniform (A)</h3>
+            <div className="section-header">
+              <div>
+                <h3 className="page-title" style={{ fontSize: '1.05rem' }}>L2 Distance to Uniform (A)</h3>
+                <p className="page-subtitle">How far A&apos;s strategy is from the uniform mixed strategy.</p>
+              </div>
+            </div>
             <ReactECharts echarts={echarts} option={l2Option} style={{ height: 260 }} />
           </div>
         )}

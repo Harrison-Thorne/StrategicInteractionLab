@@ -7,13 +7,16 @@ const Navbar: React.FC = () => {
   const nav = useNavigate();
   return (
     <div className="navbar">
-      <div className="brand">StrategicInteractionLab</div>
+      <div className="brand">
+        <span className="brand-pip" />
+        StrategicInteractionLab
+      </div>
       {user && (
         <div className="right">
-          <Link to="/arena" style={{ color: 'inherit', textDecoration: 'none' }}>Arena</Link>
-          <Link to="/notes" style={{ color: 'inherit', textDecoration: 'none' }}>Notes</Link>
-          <Link to="/eval" style={{ color: 'inherit', textDecoration: 'none' }}>Eval</Link>
-          <span>{user.email}</span>
+          <Link to="/arena" className="nav-link">Arena</Link>
+          <Link to="/notes" className="nav-link">Notes</Link>
+          <Link to="/eval" className="nav-link">Eval</Link>
+          <span className="nav-user">{user.email}</span>
           <button onClick={async () => { await logout(); nav('/login'); }} disabled={loading}>Logout</button>
         </div>
       )}
