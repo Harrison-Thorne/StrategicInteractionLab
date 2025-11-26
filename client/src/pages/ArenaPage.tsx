@@ -28,6 +28,8 @@ type TickRecord = {
   p2: Vec; // player2 mixed strategy snapshot
 };
 
+const ACTION_COLORS = ['#60a5fa', '#f59e0b', '#22c55e', '#a855f7', '#f97373', '#38bdf8', '#14b8a6'];
+
 function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
 
 function normalize(v: Vec): Vec {
@@ -281,6 +283,25 @@ const ArenaPage: React.FC = () => {
     setTick((x) => x + 1);
   }
 
+  function downloadCsv() {
+    if (!recsRef.current.length) return;
+    const header = ['t', 'p1_action', 'p2_action', 'reward1', 'reward2', 'p1_probs', 'p2_probs'];
+    const lines = recsRef.current.map((r) => {
+      const p1Act = game.acts1[r.a1] ?? String(r.a1);
+      const p2Act = game.acts2[r.a2] ?? String(r.a2);
+      const p1Prob = r.p1.map((x) => x.toFixed(4)).join('|');
+      const p2Prob = r.p2.map((x) => x.toFixed(4)).join('|');
+      return [r.t, p1Act, p2Act, r.r1, r.r2, `"${p1Prob}"`, `"${p2Prob}"`].join(',');
+    });
+    const blob = new Blob([`${header.join(',')}\n${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `arena_steps_${game.id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const [tick, setTick] = useState(0); // render trigger
 
   // Derived datasets
@@ -309,6 +330,21 @@ const ArenaPage: React.FC = () => {
     }
     return data;
   }, [tick]);
+
+  const decisionData = useMemo(() => recsRef.current.flatMap((r) => ([
+    { t: r.t, player: 'P1', action: game.acts1[r.a1] ?? String(r.a1), reward: r.r1 },
+    { t: r.t, player: 'P2', action: game.acts2[r.a2] ?? String(r.a2), reward: r.r2 },
+  ])), [tick, gameId]);
+
+  const actionCategories = useMemo(() => Array.from(new Set([...game.acts1, ...game.acts2])), [gameId]);
+
+  const actionColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    actionCategories.forEach((a, idx) => { map.set(a, ACTION_COLORS[idx % ACTION_COLORS.length]); });
+    return map;
+  }, [actionCategories]);
+
+  const recentSteps = useMemo(() => recsRef.current.slice(-12).reverse(), [tick]);
 
   // Charts options
   const rewardOption = useMemo(() => ({
@@ -345,6 +381,44 @@ const ArenaPage: React.FC = () => {
     visualMap: { min: 0, max: 1, orient: 'horizontal', left: 'center', bottom: 0 },
     series: [{ type: 'heatmap', data: heatSeries }],
   }), [tick, game.id]);
+
+  const decisionOption = useMemo(() => ({
+    grid: { top: 20, right: 10, bottom: 80, left: 70 },
+    tooltip: {
+      trigger: 'item',
+      formatter: (p: any) => {
+        const d = p.data;
+        return `t = ${d.t}<br/>${d.player} played ${d.action}<br/>reward: ${d.reward}`;
+      }
+    },
+    dataset: { source: decisionData },
+    xAxis: { type: 'value', name: 't' },
+    yAxis: { type: 'category', data: ['P1', 'P2'], inverse: true, name: 'player' },
+    dataZoom: [
+      { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
+      { type: 'slider', xAxisIndex: 0, height: 18, bottom: 48 },
+    ],
+    visualMap: {
+      type: 'piecewise',
+      dimension: 'action',
+      categories: actionCategories,
+      orient: 'horizontal',
+      bottom: 10,
+      left: 'center',
+      itemWidth: 12,
+      itemHeight: 12,
+      textStyle: { color: '#e5e7eb' },
+      inRange: { color: ACTION_COLORS },
+    },
+    series: [{
+      type: 'scatter',
+      symbol: 'roundRect',
+      symbolSize: 12,
+      encode: { x: 't', y: 'player' },
+      itemStyle: { opacity: 0.9 },
+      emphasis: { focus: 'series' },
+    }],
+  }), [decisionData, actionCategories]);
 
   return (
     <div className="container page-animate">
@@ -391,6 +465,46 @@ const ArenaPage: React.FC = () => {
       </div>
 
       <div className="col" style={{ gap: 16 }}>
+        <div className="card">
+          <div className="section-header">
+            <div>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Decision Trace</h3>
+              <p className="page-subtitle">See the exact actions taken by both players on every step.</p>
+            </div>
+            <div className="row" style={{ gap: 8 }}>
+              <button onClick={downloadCsv} disabled={!recsRef.current.length}>Download steps CSV</button>
+            </div>
+          </div>
+          <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 320 }}>
+              <ChartBoundary>
+                <ReactECharts echarts={echarts} option={decisionOption} style={{ height: 300 }} />
+              </ChartBoundary>
+            </div>
+            <div className="col" style={{ flex: '0 0 320px', minWidth: 260, gap: 8 }}>
+              <div className="muted">Latest steps</div>
+              <div style={{ border: '1px solid rgba(148, 163, 184, 0.35)', borderRadius: 12, padding: '0.6rem', background: 'rgba(15, 23, 42, 0.6)', maxHeight: 300, overflowY: 'auto' }}>
+                {recentSteps.length === 0 && <div className="muted">No steps recorded yet.</div>}
+                {recentSteps.map((r) => {
+                  const p1Act = game.acts1[r.a1] ?? String(r.a1);
+                  const p2Act = game.acts2[r.a2] ?? String(r.a2);
+                  return (
+                    <div key={r.t} className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                      <div className="muted" style={{ minWidth: 52 }}>t = {r.t}</div>
+                      <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${actionColorMap.get(p1Act) ?? '#1e293b'}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>P1: {p1Act}</span>
+                        <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${actionColorMap.get(p2Act) ?? '#1e293b'}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>P2: {p2Act}</span>
+                        <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>r1: {r.r1}</span>
+                        <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(56,189,248,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>r2: {r.r2}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="card">
           <div className="section-header">
             <div>

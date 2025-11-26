@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../auth';
 import { createEvalRun, getEvalMetricsByRunId, getEvalRunById, getEvalSummaryByRunId } from '../db';
-import { runEval } from './runner';
+import { generateEvalTrace, runEval } from './runner';
 
 const router = express.Router();
 
@@ -55,6 +55,29 @@ router.get('/metrics/:run_id', async (req: Request, res: Response) => {
     const rows = await getEvalMetricsByRunId(run_id);
     return res.json(rows);
   } catch (err) {
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+// GET /api/eval/trace/:run_id -> full step-level trace (may be large)
+router.get('/trace/:run_id', async (req: Request, res: Response) => {
+  try {
+    const run_id = Number(req.params.run_id);
+    const run = await getEvalRunById(run_id);
+    if (!run) return res.status(404).json({ error: 'not_found' });
+    const seeds = JSON.parse(run.seeds || '[]') as number[];
+    const payload = generateEvalTrace({
+      game: run.game,
+      algA: run.algA,
+      algB: run.algB,
+      seeds,
+      episodes: Number(run.episodes),
+      stepsPerEp: Number(run.stepsPerEp),
+      lr: run.lr != null ? Number(run.lr) : undefined,
+    });
+    return res.json(payload);
+  } catch (err) {
+    console.error('eval trace error', err);
     return res.status(500).json({ error: 'internal_error' });
   }
 });

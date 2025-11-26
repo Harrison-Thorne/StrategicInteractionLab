@@ -161,3 +161,65 @@ export async function runEval(params: {
     l2Dist_mean: msL2.mean, l2Dist_std: msL2.std,
   });
 }
+
+export type EvalTraceStep = {
+  seed: number;
+  ep: number;
+  t: number;
+  actionA: number;
+  actionB: number;
+  rewardA: number;
+  rewardB: number;
+  pA: number[];
+  pB: number[];
+};
+
+export function generateEvalTrace(params: {
+  game: GameId;
+  algA: 'hedge' | 'regret' | 'fp';
+  algB: 'hedge' | 'regret' | 'fp';
+  seeds: number[];
+  episodes: number;
+  stepsPerEp: number;
+  lr?: number;
+}): { steps: EvalTraceStep[]; actsA: string[]; actsB: string[] } {
+  const spec = GAMES[params.game];
+  if (!spec) throw new Error('invalid_game');
+  const A = spec.A as unknown as number[][];
+  const B = spec.B as unknown as number[][];
+  const nA = A.length;
+  const nB = A[0].length;
+  const steps: EvalTraceStep[] = [];
+
+  for (const seed of params.seeds) {
+    const rng = mulberry32(seed);
+    for (let ep = 1; ep <= params.episodes; ep++) {
+      let pA: Vec = Array(nA).fill(1 / nA);
+      let pB: Vec = Array(nB).fill(1 / nB);
+      const stepA = makeStepper(params.algA, nA, params.lr);
+      const stepB = makeStepper(params.algB, nB, params.lr);
+
+      for (let t = 1; t <= params.stepsPerEp; t++) {
+        pA = stepA(pB, A);
+        pB = stepB(pA, B);
+        const a = sampleIndex(pA, rng);
+        const b = sampleIndex(pB, rng);
+        const rA = A[a][b];
+        const rB = B[a][b];
+        steps.push({
+          seed,
+          ep,
+          t,
+          actionA: a,
+          actionB: b,
+          rewardA: rA,
+          rewardB: rB,
+          pA: [...pA],
+          pB: [...pB],
+        });
+      }
+    }
+  }
+
+  return { steps, actsA: [...spec.actsA], actsB: [...spec.actsB] };
+}

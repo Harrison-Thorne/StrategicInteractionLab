@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import api from '../api';
@@ -16,6 +16,25 @@ type Metric = {
 };
 
 const defaultSeeds = '1,2,3';
+const ACTION_COLORS = ['#60a5fa', '#f59e0b', '#22c55e', '#a855f7', '#f97373', '#38bdf8', '#14b8a6'];
+
+type TraceStep = {
+  seed: number;
+  ep: number;
+  t: number;
+  actionA: number;
+  actionB: number;
+  rewardA: number;
+  rewardB: number;
+  pA: number[];
+  pB: number[];
+};
+
+type TracePayload = {
+  actsA: string[];
+  actsB: string[];
+  steps: TraceStep[];
+};
 
 const EvalPage: React.FC = () => {
   const [game, setGame] = useState<GameId>('rps');
@@ -29,12 +48,19 @@ const EvalPage: React.FC = () => {
   const [runId, setRunId] = useState<number | null>(null);
   const [summary, setSummary] = useState<any | null>(null);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [trace, setTrace] = useState<TracePayload | null>(null);
+  const [traceLoading, setTraceLoading] = useState(false);
+  const [traceSeed, setTraceSeed] = useState<number | null>(null);
+  const [traceEp, setTraceEp] = useState<number | null>(null);
 
   async function runEval() {
     try {
       setRunning(true);
       setSummary(null);
       setMetrics([]);
+      setTrace(null);
+      setTraceSeed(null);
+      setTraceEp(null);
       const seeds = seedsText.split(',').map((s) => parseInt(s.trim(), 10)).filter((x) => !isNaN(x));
       const res = await api.post('/api/eval/start', { game, algA, algB, seeds, episodes, stepsPerEp, lr });
       const id = res.data?.run_id as number;
@@ -48,8 +74,22 @@ const EvalPage: React.FC = () => {
       }
       const mres = await api.get(`/api/eval/metrics/${id}`);
       setMetrics(mres.data);
+      await loadTrace(id);
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function loadTrace(id: number) {
+    try {
+      setTraceLoading(true);
+      const tres = await api.get(`/api/eval/trace/${id}`);
+      const payload: TracePayload = tres.data;
+      setTrace(payload);
+      const seeds = Array.from(new Set(payload.steps.map((s) => s.seed))).sort((a, b) => a - b);
+      setTraceSeed((prev) => prev ?? (seeds[0] ?? null));
+    } finally {
+      setTraceLoading(false);
     }
   }
 
@@ -142,6 +182,101 @@ const EvalPage: React.FC = () => {
     series: [{ type: 'bar', data: winHist.counts }],
   }), [winHist]);
 
+  const availableSeeds = useMemo(() => trace ? Array.from(new Set(trace.steps.map((s) => s.seed))).sort((a, b) => a - b) : [], [trace]);
+
+  useEffect(() => {
+    if (!trace) return;
+    if (traceSeed == null && availableSeeds.length) {
+      setTraceSeed(availableSeeds[0]);
+    }
+  }, [trace, availableSeeds, traceSeed]);
+
+  const availableEps = useMemo(() => {
+    if (!trace || traceSeed == null) return [];
+    return Array.from(new Set(trace.steps.filter((s) => s.seed === traceSeed).map((s) => s.ep))).sort((a, b) => a - b);
+  }, [trace, traceSeed]);
+
+  useEffect(() => {
+    if (!trace || traceSeed == null) return;
+    if (traceEp == null || !availableEps.includes(traceEp)) {
+      setTraceEp(availableEps[0] ?? null);
+    }
+  }, [trace, traceSeed, traceEp, availableEps]);
+
+  const filteredSteps = useMemo(() => {
+    if (!trace) return [];
+    return trace.steps.filter((s) => (traceSeed == null || s.seed === traceSeed) && (traceEp == null || s.ep === traceEp));
+  }, [trace, traceSeed, traceEp]);
+
+  const actionCategories = useMemo(() => trace ? Array.from(new Set([...trace.actsA, ...trace.actsB])) : [], [trace]);
+
+  const decisionData = useMemo(() => {
+    if (!trace) return [];
+    return filteredSteps.flatMap((s) => ([
+      { step: s.t, player: 'A', action: trace.actsA[s.actionA] ?? String(s.actionA), reward: s.rewardA, seed: s.seed, ep: s.ep },
+      { step: s.t, player: 'B', action: trace.actsB[s.actionB] ?? String(s.actionB), reward: s.rewardB, seed: s.seed, ep: s.ep },
+    ]));
+  }, [filteredSteps, trace]);
+
+  const decisionOption = useMemo(() => ({
+    grid: { top: 20, right: 10, bottom: 80, left: 70 },
+    tooltip: {
+      trigger: 'item',
+      formatter: (p: any) => {
+        const d = p.data;
+        return `seed ${d.seed} · ep ${d.ep}<br/>t = ${d.step}<br/>P${d.player} played ${d.action}<br/>reward: ${d.reward}`;
+      }
+    },
+    dataset: { source: decisionData },
+    xAxis: { type: 'value', name: 't' },
+    yAxis: { type: 'category', data: ['A', 'B'], inverse: true, name: 'player' },
+    dataZoom: [
+      { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
+      { type: 'slider', xAxisIndex: 0, height: 18, bottom: 48 },
+    ],
+    visualMap: {
+      type: 'piecewise',
+      dimension: 'action',
+      categories: actionCategories,
+      orient: 'horizontal',
+      bottom: 10,
+      left: 'center',
+      itemWidth: 12,
+      itemHeight: 12,
+      textStyle: { color: '#e5e7eb' },
+      inRange: { color: ACTION_COLORS },
+    },
+    series: [{
+      type: 'scatter',
+      symbol: 'roundRect',
+      symbolSize: 12,
+      encode: { x: 'step', y: 'player' },
+      itemStyle: { opacity: 0.9 },
+      emphasis: { focus: 'series' },
+    }],
+  }), [decisionData, actionCategories]);
+
+  const recentSteps = useMemo(() => filteredSteps.slice(-12).reverse(), [filteredSteps]);
+
+  function downloadTraceCsv() {
+    if (!trace || !trace.steps.length) return;
+    const header = ['seed', 'ep', 't', 'actionA', 'actionB', 'rewardA', 'rewardB', 'pA', 'pB'];
+    const lines = trace.steps.map((s) => {
+      const aAct = trace.actsA[s.actionA] ?? String(s.actionA);
+      const bAct = trace.actsB[s.actionB] ?? String(s.actionB);
+      const pA = s.pA.map((x) => x.toFixed(4)).join('|');
+      const pB = s.pB.map((x) => x.toFixed(4)).join('|');
+      return [s.seed, s.ep, s.t, aAct, bAct, s.rewardA, s.rewardB, `"${pA}"`, `"${pB}"`].join(',');
+    });
+    const blob = new Blob([`${header.join(',')}\n${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eval_steps_run${runId ?? 'latest'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="container page-animate">
       <div className="card" style={{ marginBottom: 16 }}>
@@ -211,6 +346,60 @@ const EvalPage: React.FC = () => {
       </div>
 
       {summaryView}
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-header">
+          <div>
+            <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Per-step Decisions</h3>
+            <p className="page-subtitle">Inspect every action taken during evaluation runs.</p>
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <div className="col" style={{ minWidth: 160 }}>
+              <div className="muted">Seed</div>
+              <select value={traceSeed ?? ''} onChange={(e) => setTraceSeed(e.target.value ? Number(e.target.value) : null)} disabled={!availableSeeds.length}>
+                {availableSeeds.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="col" style={{ minWidth: 160 }}>
+              <div className="muted">Episode</div>
+              <select value={traceEp ?? ''} onChange={(e) => setTraceEp(e.target.value ? Number(e.target.value) : null)} disabled={!availableEps.length}>
+                {availableEps.map((ep) => <option key={ep} value={ep}>{ep}</option>)}
+              </select>
+            </div>
+            <button onClick={downloadTraceCsv} disabled={!trace || !trace.steps.length}>Download steps CSV</button>
+          </div>
+        </div>
+        <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 320 }}>
+            <ReactECharts echarts={echarts} option={decisionOption} style={{ height: 300 }} />
+            {!trace && <div className="muted" style={{ marginTop: 8 }}>Run an evaluation to see step-level actions.</div>}
+            {traceLoading && <div className="muted" style={{ marginTop: 8 }}>Loading trace...</div>}
+          </div>
+          <div className="col" style={{ flex: '0 0 320px', minWidth: 260, gap: 8 }}>
+            <div className="muted">Latest steps (selected seed/episode)</div>
+            <div style={{ border: '1px solid rgba(148, 163, 184, 0.35)', borderRadius: 12, padding: '0.6rem', background: 'rgba(15, 23, 42, 0.6)', maxHeight: 300, overflowY: 'auto' }}>
+              {recentSteps.length === 0 && <div className="muted">No steps recorded yet.</div>}
+              {recentSteps.map((s) => {
+                const aAct = trace?.actsA[s.actionA] ?? String(s.actionA);
+                const bAct = trace?.actsB[s.actionB] ?? String(s.actionB);
+                const colorA = actionCategories.length ? ACTION_COLORS[actionCategories.indexOf(aAct) % ACTION_COLORS.length] : '#1e293b';
+                const colorB = actionCategories.length ? ACTION_COLORS[actionCategories.indexOf(bAct) % ACTION_COLORS.length] : '#1e293b';
+                return (
+                  <div key={`${s.seed}-${s.ep}-${s.t}`} className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                    <div className="muted" style={{ minWidth: 60 }}>t = {s.t}</div>
+                    <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${colorA}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>A: {aAct}</span>
+                      <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${colorB}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>B: {bAct}</span>
+                      <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>rA: {s.rewardA}</span>
+                      <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(56,189,248,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>rB: {s.rewardB}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="col" style={{ gap: 16 }}>
         <div className="card">
