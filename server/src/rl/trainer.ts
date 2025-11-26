@@ -165,6 +165,17 @@ export type TrainResult = {
   actsB: string[];
 };
 
+export type DistributedTrainResult = {
+  distributed: true;
+  workers: number;
+  base_seed: number;
+  workerRuns: Array<{ run_id: string; seed: number; logs: TrainLogs }>;
+  aggregatedLogs: TrainLogs;
+  config: TrainConfig;
+  actsA: string[];
+  actsB: string[];
+};
+
 export function trainSelfPlay(cfg: TrainConfig): TrainResult {
   const spec = GAMES[cfg.game];
   if (!spec) throw new Error('invalid_game');
@@ -269,5 +280,43 @@ export function trainSelfPlay(cfg: TrainConfig): TrainResult {
     policyB: polB,
     actsA: spec.actsA,
     actsB: spec.actsB,
+  };
+}
+
+export function trainSelfPlayDistributed(cfg: TrainConfig & { workers: number }): DistributedTrainResult {
+  const workers = Math.max(1, Math.min(16, cfg.workers));
+  const baseSeed = cfg.seed ?? 1234;
+  const runs = Array.from({ length: workers }, (_, i) => {
+    const seed = baseSeed + i;
+    const run = trainSelfPlay({ ...cfg, seed });
+    return { run_id: run.run_id, seed, logs: run.logs };
+  });
+  // aggregate logs by episode index
+  const episodes = runs[0]?.logs.length || cfg.episodes;
+  const aggregatedLogs: TrainLogs = [];
+  for (let idx = 0; idx < episodes; idx++) {
+    let sumA = 0; let sumB = 0; let sumWin = 0; let countWin = 0;
+    for (const r of runs) {
+      const log = r.logs[idx];
+      sumA += log?.avgRewardA ?? 0;
+      sumB += log?.avgRewardB ?? 0;
+      if (log?.winA != null) { sumWin += log.winA; countWin += 1; }
+    }
+    aggregatedLogs.push({
+      ep: idx + 1,
+      avgRewardA: sumA / workers,
+      avgRewardB: sumB / workers,
+      winA: countWin ? sumWin / countWin : null,
+    });
+  }
+  return {
+    distributed: true,
+    workers,
+    base_seed: baseSeed,
+    workerRuns: runs,
+    aggregatedLogs,
+    config: cfg,
+    actsA: GAMES[cfg.game].actsA,
+    actsB: GAMES[cfg.game].actsB,
   };
 }

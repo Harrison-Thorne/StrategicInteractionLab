@@ -21,6 +21,19 @@ type TrainResp = {
   policyB: any;
 };
 
+type DistributedTrainResp = {
+  distributed: true;
+  workers: number;
+  base_seed: number;
+  workerRuns: Array<{ run_id: string; seed: number; logs: TrainResp['logs'] }>;
+  aggregatedLogs: TrainResp['logs'];
+  config: TrainResp['config'];
+  actsA: string[];
+  actsB: string[];
+};
+
+type TrainRespUnion = TrainResp | DistributedTrainResp;
+
 const RLPage: React.FC = () => {
   const [game, setGame] = useState<GameId>('pd');
   const [episodes, setEpisodes] = useState(80);
@@ -29,34 +42,44 @@ const RLPage: React.FC = () => {
   const [hidden, setHidden] = useState(16);
   const [seed, setSeed] = useState(1234);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<TrainResp | null>(null);
+  const [distributed, setDistributed] = useState(false);
+  const [workers, setWorkers] = useState(4);
+  const [result, setResult] = useState<TrainRespUnion | null>(null);
 
   async function startTrain() {
     setRunning(true);
     setResult(null);
     try {
-      const res = await api.post('/api/rl/train', { game, episodes, stepsPerEp, lr, hidden, seed });
+      const path = distributed ? '/api/rl/train/distributed' : '/api/rl/train';
+      const body = distributed ? { game, episodes, stepsPerEp, lr, hidden, seed, workers } : { game, episodes, stepsPerEp, lr, hidden, seed };
+      const res = await api.post(path, body);
       setResult(res.data);
     } finally {
       setRunning(false);
     }
   }
 
+  const logs = useMemo(() => {
+    if (!result) return [];
+    if ('distributed' in result && result.distributed) return result.aggregatedLogs;
+    return result.logs;
+  }, [result]);
+
   const rewardOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: result?.logs.map((l) => l.ep) ?? [] },
+    xAxis: { type: 'category', data: logs.map((l) => l.ep) ?? [] },
     yAxis: { type: 'value', name: 'avgRewardA' },
-    series: [{ type: 'line', data: result?.logs.map((l) => l.avgRewardA) ?? [], smooth: true }],
-  }), [result]);
+    series: [{ type: 'line', data: logs.map((l) => l.avgRewardA) ?? [], smooth: true }],
+  }), [logs]);
 
   const winOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: result?.logs.map((l) => l.ep) ?? [] },
+    xAxis: { type: 'category', data: logs.map((l) => l.ep) ?? [] },
     yAxis: { type: 'value', name: 'winA', min: 0, max: 1 },
-    series: [{ type: 'line', data: result?.logs.map((l) => l.winA ?? null) ?? [], smooth: true }],
-  }), [result]);
+    series: [{ type: 'line', data: logs.map((l) => l.winA ?? null) ?? [], smooth: true }],
+  }), [logs]);
 
   function downloadPolicy() {
     if (!result) return;
@@ -112,6 +135,19 @@ const RLPage: React.FC = () => {
             <div className="muted">Seed</div>
             <input type="number" value={seed} onChange={(e) => setSeed(parseInt(e.target.value || '1234', 10))} />
           </div>
+          <div className="col" style={{ minWidth: 200 }}>
+            <div className="muted">Distributed demo</div>
+            <label className="row" style={{ gap: 8, alignItems: 'center' }}>
+              <input type="checkbox" checked={distributed} onChange={(e) => setDistributed(e.target.checked)} />
+              <span className="muted">Enable multi-worker aggregation</span>
+            </label>
+          </div>
+          {distributed && (
+            <div className="col">
+              <div className="muted">Workers</div>
+              <input type="number" min={1} max={16} value={workers} onChange={(e) => setWorkers(parseInt(e.target.value || '1', 10))} />
+            </div>
+          )}
           <div className="row" style={{ gap: 8, marginLeft: 'auto' }}>
             <button className="primary" onClick={startTrain} disabled={running}>Train</button>
             <button onClick={downloadPolicy} disabled={!result}>Download policy</button>
@@ -143,17 +179,31 @@ const RLPage: React.FC = () => {
             <div className="section-header">
               <div>
                 <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Run Summary</h3>
-                <p className="page-subtitle">Configuration + last policy snapshot.</p>
+                <p className="page-subtitle">Configuration + last policy snapshot{('distributed' in result && result.distributed) ? ' (aggregated view)' : ''}.</p>
               </div>
             </div>
             <pre style={{ whiteSpace: 'pre-wrap', background: 'rgba(15,23,42,0.6)', padding: '0.8rem', borderRadius: 12, border: '1px solid rgba(148,163,184,0.35)', maxHeight: 360, overflow: 'auto' }}>
-{JSON.stringify({
-  run_id: result.run_id,
-  config: result.config,
-  actsA: result.actsA,
-  actsB: result.actsB,
-  lastLog: result.logs[result.logs.length - 1],
-}, null, 2)}
+{JSON.stringify((() => {
+  if ('distributed' in result && result.distributed) {
+    return {
+      distributed: true,
+      workers: result.workers,
+      base_seed: result.base_seed,
+      config: result.config,
+      actsA: result.actsA,
+      actsB: result.actsB,
+      aggregatedLastLog: result.aggregatedLogs[result.aggregatedLogs.length - 1],
+      workerRuns: result.workerRuns.map((w) => ({ run_id: w.run_id, seed: w.seed })),
+    };
+  }
+  return {
+    run_id: result.run_id,
+    config: result.config,
+    actsA: result.actsA,
+    actsB: result.actsB,
+    lastLog: result.logs[result.logs.length - 1],
+  };
+})(), null, 2)}
             </pre>
           </div>
         )}
