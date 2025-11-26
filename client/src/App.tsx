@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import NotesPage from './pages/NotesPage';
 import ArenaPage from './pages/ArenaPage';
 import EvalPage from './pages/EvalPage';
+import RLPage from './pages/RLPage';
 
 const App: React.FC = () => {
   return (
@@ -16,6 +17,7 @@ const App: React.FC = () => {
       <Route path="/notes" element={<RequireAuth><><Navbar /><NotesPage /></></RequireAuth>} />
       <Route path="/arena" element={<RequireAuth><><Navbar /><ArenaPage /></></RequireAuth>} />
       <Route path="/eval" element={<RequireAuth><><Navbar /><EvalPage /></></RequireAuth>} />
+      <Route path="/rl" element={<RequireAuth><><Navbar /><RLPage /></></RequireAuth>} />
     </Routes>
   );
 };

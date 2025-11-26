@@ -11,6 +11,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import * as arenaStore from './arena/store';
 import { notesRouter } from './notes';
+import { rlRouter } from './rl/routes';
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ async function start() {
   app.use('/api/notes', notesRouter);
   app.use('/api/arena', arenaRouter);
   app.use('/api/eval', evalRouter);
+  app.use('/api/rl', rlRouter);
 
   app.get('/api/hello', requireAuth, (req: any, res) => {
     const email = req.user?.email || 'user';

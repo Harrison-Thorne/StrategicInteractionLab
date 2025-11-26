@@ -14,6 +14,7 @@ const Navbar: React.FC = () => {
       {user && (
         <div className="right">
           <Link to="/arena" className="nav-link">Arena</Link>
+          <Link to="/rl" className="nav-link">RL Train</Link>
           <Link to="/notes" className="nav-link">Notes</Link>
           <Link to="/eval" className="nav-link">Eval</Link>
           <span className="nav-user">{user.email}</span>
