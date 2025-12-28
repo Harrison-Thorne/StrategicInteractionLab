@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import api from '../api';
+import { useI18n } from '../i18n';
 
 type GameId = 'rps' | 'mp' | 'pd';
 type AlgId = 'hedge' | 'regret' | 'fp';
@@ -52,6 +53,7 @@ const EvalPage: React.FC = () => {
   const [traceLoading, setTraceLoading] = useState(false);
   const [traceSeed, setTraceSeed] = useState<number | null>(null);
   const [traceEp, setTraceEp] = useState<number | null>(null);
+  const { t } = useI18n();
 
   async function runEval() {
     try {
@@ -141,46 +143,46 @@ const EvalPage: React.FC = () => {
     return (
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row" style={{ flexWrap: 'wrap', gap: 16 }}>
-          <div>winA: {fmt(s.winA_mean)} ± {fmt(s.winA_std)}</div>
-          <div>avgRewardA: {fmt(s.avgRewardA_mean)} ± {fmt(s.avgRewardA_std)}</div>
-          {game === 'pd' && <div>coopRate: {fmt(s.coopRate_mean)} ± {fmt(s.coopRate_std)}</div>}
-          {game !== 'pd' && <div>l2Dist: {fmt(s.l2Dist_mean)} ± {fmt(s.l2Dist_std)}</div>}
+          <div>{t('eval.summary.winA')}: {fmt(s.winA_mean)} ± {fmt(s.winA_std)}</div>
+          <div>{t('eval.summary.avgRewardA')}: {fmt(s.avgRewardA_mean)} ± {fmt(s.avgRewardA_std)}</div>
+          {game === 'pd' && <div>{t('eval.summary.coopRate')}: {fmt(s.coopRate_mean)} ± {fmt(s.coopRate_std)}</div>}
+          {game !== 'pd' && <div>{t('eval.summary.l2Dist')}: {fmt(s.l2Dist_mean)} ± {fmt(s.l2Dist_std)}</div>}
         </div>
       </div>
     );
-  }, [summary, game]);
+  }, [summary, game, t]);
 
   const rewardOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: byEp.eps },
-    yAxis: { type: 'value', name: 'avgRewardA' },
+    xAxis: { type: 'category', data: byEp.eps, name: t('eval.control.episodes') },
+    yAxis: { type: 'value', name: t('eval.axis.avgRewardA') },
     series: [{ type: 'line', data: byEp.avgReward.map((d) => d.mean), smooth: true }],
-  }), [byEp]);
+  }), [byEp, t]);
 
   const coopOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: byEp.eps },
-    yAxis: { type: 'value', name: 'coopRate', min: 0, max: 1 },
+    xAxis: { type: 'category', data: byEp.eps, name: t('eval.control.episodes') },
+    yAxis: { type: 'value', name: t('eval.axis.coopRate'), min: 0, max: 1 },
     series: [{ type: 'bar', data: byEp.coop.map((d) => d.mean ?? null) }],
-  }), [byEp]);
+  }), [byEp, t]);
 
   const l2Option = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: byEp.eps },
-    yAxis: { type: 'value', name: 'l2Dist' },
+    xAxis: { type: 'category', data: byEp.eps, name: t('eval.control.episodes') },
+    yAxis: { type: 'value', name: t('eval.axis.l2Dist') },
     series: [{ type: 'line', data: byEp.l2.map((d) => d.mean ?? null), smooth: true }],
-  }), [byEp]);
+  }), [byEp, t]);
 
   const winHistOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
     tooltip: {},
     xAxis: { type: 'category', data: winHist.labels, axisLabel: { interval: 1 } },
-    yAxis: { type: 'value', name: 'count' },
+    yAxis: { type: 'value', name: t('eval.axis.count') },
     series: [{ type: 'bar', data: winHist.counts }],
-  }), [winHist]);
+  }), [winHist, t]);
 
   const availableSeeds = useMemo(() => trace ? Array.from(new Set(trace.steps.map((s) => s.seed))).sort((a, b) => a - b) : [], [trace]);
 
@@ -224,12 +226,12 @@ const EvalPage: React.FC = () => {
       trigger: 'item',
       formatter: (p: any) => {
         const d = p.data;
-        return `seed ${d.seed} · ep ${d.ep}<br/>t = ${d.step}<br/>P${d.player} played ${d.action}<br/>reward: ${d.reward}`;
+        return t('eval.tooltip.decision', { seed: d.seed, ep: d.ep, t: d.step, player: d.player, action: d.action, reward: d.reward });
       }
     },
     dataset: { source: decisionData },
-    xAxis: { type: 'value', name: 't' },
-    yAxis: { type: 'category', data: ['A', 'B'], inverse: true, name: 'player' },
+    xAxis: { type: 'value', name: t('eval.axis.t') },
+    yAxis: { type: 'category', data: ['A', 'B'], inverse: true, name: t('eval.axis.player') },
     dataZoom: [
       { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
       { type: 'slider', xAxisIndex: 0, height: 18, bottom: 48 },
@@ -254,7 +256,7 @@ const EvalPage: React.FC = () => {
       itemStyle: { opacity: 0.9 },
       emphasis: { focus: 'series' },
     }],
-  }), [decisionData, actionCategories]);
+  }), [decisionData, actionCategories, t]);
 
   const recentSteps = useMemo(() => filteredSteps.slice(-12).reverse(), [filteredSteps]);
 
@@ -282,65 +284,65 @@ const EvalPage: React.FC = () => {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <div>
-            <h2 className="page-title">Algorithm Evaluation Suite</h2>
+            <h2 className="page-title">{t('eval.title')}</h2>
             <p className="page-subtitle">
-              Batch experiments across seeds and episodes to compare learning algorithms quantitatively.
+              {t('eval.subtitle')}
             </p>
           </div>
           <div className="section-meta">
             <div className="pill">
               <span className="pill-dot" />
-              Summary statistics
+              {t('eval.pillSummary')}
             </div>
             <div className="pill">
               <span className="pill-dot accent" />
-              Distributional view
+              {t('eval.pillDistribution')}
             </div>
           </div>
         </div>
         <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
           <div className="col">
-            <div className="muted">Game</div>
+            <div className="muted">{t('eval.control.game')}</div>
             <select value={game} onChange={(e) => setGame(e.target.value as GameId)}>
-              <option value="rps">RPS</option>
-              <option value="mp">Matching Pennies</option>
-              <option value="pd">Prisoner's Dilemma</option>
+              <option value="rps">{t('arena.control.rps')}</option>
+              <option value="mp">{t('arena.control.mp')}</option>
+              <option value="pd">{t('arena.control.pd')}</option>
             </select>
           </div>
           <div className="col">
-            <div className="muted">Alg A</div>
+            <div className="muted">{t('eval.control.algA')}</div>
             <select value={algA} onChange={(e) => setAlgA(e.target.value as AlgId)}>
-              <option value="hedge">hedge</option>
-              <option value="regret">regret</option>
-              <option value="fp">fp</option>
+              <option value="hedge">{t('eval.alg.hedge')}</option>
+              <option value="regret">{t('eval.alg.regret')}</option>
+              <option value="fp">{t('eval.alg.fp')}</option>
             </select>
           </div>
           <div className="col">
-            <div className="muted">Alg B</div>
+            <div className="muted">{t('eval.control.algB')}</div>
             <select value={algB} onChange={(e) => setAlgB(e.target.value as AlgId)}>
-              <option value="hedge">hedge</option>
-              <option value="regret">regret</option>
-              <option value="fp">fp</option>
+              <option value="hedge">{t('eval.alg.hedge')}</option>
+              <option value="regret">{t('eval.alg.regret')}</option>
+              <option value="fp">{t('eval.alg.fp')}</option>
             </select>
           </div>
           <div className="col" style={{ minWidth: 200 }}>
-            <div className="muted">Seeds (comma)</div>
+            <div className="muted">{t('eval.control.seeds')}</div>
             <input value={seedsText} onChange={(e) => setSeedsText(e.target.value)} />
           </div>
           <div className="col">
-            <div className="muted">Episodes</div>
+            <div className="muted">{t('eval.control.episodes')}</div>
             <input type="number" min={1} max={200} value={episodes} onChange={(e) => setEpisodes(parseInt(e.target.value || '1', 10))} />
           </div>
           <div className="col">
-            <div className="muted">Steps/Ep</div>
+            <div className="muted">{t('eval.control.stepsPerEp')}</div>
             <input type="number" min={10} max={20000} value={stepsPerEp} onChange={(e) => setStepsPerEp(parseInt(e.target.value || '10', 10))} />
           </div>
           <div className="col">
-            <div className="muted">lr</div>
+            <div className="muted">{t('eval.control.lr')}</div>
             <input type="number" step={0.05} min={0.05} max={5} value={lr} onChange={(e) => setLr(parseFloat(e.target.value || '0.5'))} />
           </div>
           <div className="row" style={{ gap: 8, marginLeft: 'auto' }}>
-            <button className="primary" onClick={runEval} disabled={running}>Run Eval</button>
+            <button className="primary" onClick={runEval} disabled={running}>{t('eval.control.run')}</button>
           </div>
         </div>
       </div>
@@ -350,35 +352,35 @@ const EvalPage: React.FC = () => {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <div>
-            <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Per-step Decisions</h3>
-            <p className="page-subtitle">Inspect every action taken during evaluation runs.</p>
+            <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('eval.section.perStepTitle')}</h3>
+            <p className="page-subtitle">{t('eval.section.perStepSubtitle')}</p>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <div className="col" style={{ minWidth: 160 }}>
-              <div className="muted">Seed</div>
+              <div className="muted">{t('eval.control.seed')}</div>
               <select value={traceSeed ?? ''} onChange={(e) => setTraceSeed(e.target.value ? Number(e.target.value) : null)} disabled={!availableSeeds.length}>
                 {availableSeeds.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="col" style={{ minWidth: 160 }}>
-              <div className="muted">Episode</div>
+              <div className="muted">{t('eval.control.episode')}</div>
               <select value={traceEp ?? ''} onChange={(e) => setTraceEp(e.target.value ? Number(e.target.value) : null)} disabled={!availableEps.length}>
                 {availableEps.map((ep) => <option key={ep} value={ep}>{ep}</option>)}
               </select>
             </div>
-            <button onClick={downloadTraceCsv} disabled={!trace || !trace.steps.length}>Download steps CSV</button>
+            <button onClick={downloadTraceCsv} disabled={!trace || !trace.steps.length}>{t('eval.downloadTrace')}</button>
           </div>
         </div>
         <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 320 }}>
             <ReactECharts echarts={echarts} option={decisionOption} style={{ height: 300 }} />
-            {!trace && <div className="muted" style={{ marginTop: 8 }}>Run an evaluation to see step-level actions.</div>}
-            {traceLoading && <div className="muted" style={{ marginTop: 8 }}>Loading trace...</div>}
+            {!trace && <div className="muted" style={{ marginTop: 8 }}>{t('eval.noTrace')}</div>}
+            {traceLoading && <div className="muted" style={{ marginTop: 8 }}>{t('eval.loadingTrace')}</div>}
           </div>
           <div className="col" style={{ flex: '0 0 320px', minWidth: 260, gap: 8 }}>
-            <div className="muted">Latest steps (selected seed/episode)</div>
+            <div className="muted">{t('eval.latestSteps')}</div>
             <div style={{ border: '1px solid rgba(148, 163, 184, 0.35)', borderRadius: 12, padding: '0.6rem', background: 'rgba(15, 23, 42, 0.6)', maxHeight: 300, overflowY: 'auto' }}>
-              {recentSteps.length === 0 && <div className="muted">No steps recorded yet.</div>}
+              {recentSteps.length === 0 && <div className="muted">{t('eval.noSteps')}</div>}
               {recentSteps.map((s) => {
                 const aAct = trace?.actsA[s.actionA] ?? String(s.actionA);
                 const bAct = trace?.actsB[s.actionB] ?? String(s.actionB);
@@ -386,12 +388,12 @@ const EvalPage: React.FC = () => {
                 const colorB = actionCategories.length ? ACTION_COLORS[actionCategories.indexOf(bAct) % ACTION_COLORS.length] : '#1e293b';
                 return (
                   <div key={`${s.seed}-${s.ep}-${s.t}`} className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
-                    <div className="muted" style={{ minWidth: 60 }}>t = {s.t}</div>
+                    <div className="muted" style={{ minWidth: 60 }}>{t('arena.control.time', { t: s.t })}</div>
                     <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${colorA}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>A: {aAct}</span>
-                      <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${colorB}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>B: {bAct}</span>
-                      <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>rA: {s.rewardA}</span>
-                      <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(56,189,248,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>rB: {s.rewardB}</span>
+                      <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${colorA}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>{t('eval.label.a')} {aAct}</span>
+                      <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${colorB}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>{t('eval.label.b')} {bAct}</span>
+                      <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>{t('eval.label.rA')} {s.rewardA}</span>
+                      <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(56,189,248,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>{t('eval.label.rB')} {s.rewardB}</span>
                     </div>
                   </div>
                 );
@@ -405,8 +407,8 @@ const EvalPage: React.FC = () => {
         <div className="card">
           <div className="section-header">
             <div>
-              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>A Win Rate Histogram</h3>
-              <p className="page-subtitle">Distribution of A&apos;s win rate across independent seeds.</p>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('eval.histTitle')}</h3>
+              <p className="page-subtitle">{t('eval.histSubtitle')}</p>
             </div>
           </div>
           <ReactECharts echarts={echarts} option={winHistOption} style={{ height: 260 }} />
@@ -414,8 +416,8 @@ const EvalPage: React.FC = () => {
         <div className="card">
           <div className="section-header">
             <div>
-              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Avg Reward by Episode</h3>
-              <p className="page-subtitle">Episode-level aggregation of average rewards for player A.</p>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('eval.rewardTitle')}</h3>
+              <p className="page-subtitle">{t('eval.rewardSubtitle')}</p>
             </div>
           </div>
           <ReactECharts echarts={echarts} option={rewardOption} style={{ height: 260 }} />
@@ -424,8 +426,8 @@ const EvalPage: React.FC = () => {
           <div className="card">
             <div className="section-header">
               <div>
-                <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Cooperation Rate (A)</h3>
-                <p className="page-subtitle">How often player A chooses cooperative actions in PD.</p>
+                <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('eval.coopTitle')}</h3>
+                <p className="page-subtitle">{t('eval.coopSubtitle')}</p>
               </div>
             </div>
             <ReactECharts echarts={echarts} option={coopOption} style={{ height: 260 }} />
@@ -434,8 +436,8 @@ const EvalPage: React.FC = () => {
           <div className="card">
             <div className="section-header">
               <div>
-                <h3 className="page-title" style={{ fontSize: '1.05rem' }}>L2 Distance to Uniform (A)</h3>
-                <p className="page-subtitle">How far A&apos;s strategy is from the uniform mixed strategy.</p>
+                <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('eval.l2Title')}</h3>
+                <p className="page-subtitle">{t('eval.l2Subtitle')}</p>
               </div>
             </div>
             <ReactECharts echarts={echarts} option={l2Option} style={{ height: 260 }} />

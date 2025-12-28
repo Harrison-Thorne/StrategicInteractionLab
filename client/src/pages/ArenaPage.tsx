@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { io, Socket } from 'socket.io-client';
 import api from '../api';
+import { useI18n } from '../i18n';
 
 type Vec = number[];
 
@@ -118,6 +119,7 @@ const GAMES: GameSpec[] = [
 const defaultSteps = 500;
 
 const ArenaPage: React.FC = () => {
+  const { t } = useI18n();
   const [gameId, setGameId] = useState<GameId>('rps');
   const [steps, setSteps] = useState<number>(defaultSteps);
   const [seed, setSeed] = useState<string>('1234');
@@ -331,10 +333,13 @@ const ArenaPage: React.FC = () => {
     return data;
   }, [tick]);
 
+  const p1Label = t('arena.axis.p1');
+  const p2Label = t('arena.axis.p2');
+
   const decisionData = useMemo(() => recsRef.current.flatMap((r) => ([
-    { t: r.t, player: 'P1', action: game.acts1[r.a1] ?? String(r.a1), reward: r.r1 },
-    { t: r.t, player: 'P2', action: game.acts2[r.a2] ?? String(r.a2), reward: r.r2 },
-  ])), [tick, gameId]);
+    { t: r.t, player: p1Label, action: game.acts1[r.a1] ?? String(r.a1), reward: r.r1 },
+    { t: r.t, player: p2Label, action: game.acts2[r.a2] ?? String(r.a2), reward: r.r2 },
+  ])), [tick, gameId, p1Label, p2Label]);
 
   const actionCategories = useMemo(() => Array.from(new Set([...game.acts1, ...game.acts2])), [gameId]);
 
@@ -350,12 +355,12 @@ const ArenaPage: React.FC = () => {
   const rewardOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: iters, name: 't' },
-    yAxis: { type: 'value', name: 'reward' },
+    xAxis: { type: 'category', data: iters, name: t('arena.axis.t') },
+    yAxis: { type: 'value', name: t('arena.axis.reward') },
     series: [
-      { name: 'moving avg (P1)', type: 'line', data: ma1, smooth: true, showSymbol: false },
+      { name: t('arena.avgRewardTitle'), type: 'line', data: ma1, smooth: true, showSymbol: false },
     ],
-  }), [tick]);
+  }), [tick, t]);
 
   const probsOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 30, left: 40 },
@@ -373,14 +378,14 @@ const ArenaPage: React.FC = () => {
         const i = p.value[1];
         const j = p.value[0];
         const freq = p.value[2];
-        return `${game.acts1[i]} vs ${game.acts2[j]}<br/>freq: ${(freq * 100).toFixed(1)}%`;
+        return t('arena.tooltip.freq', { p1: game.acts1[i], p2: game.acts2[j], freq: (freq * 100).toFixed(1) });
       }
     },
-    xAxis: { type: 'category', data: game.acts2, name: 'P2' },
-    yAxis: { type: 'category', data: game.acts1, name: 'P1' },
+    xAxis: { type: 'category', data: game.acts2, name: t('arena.axis.p2') },
+    yAxis: { type: 'category', data: game.acts1, name: t('arena.axis.p1') },
     visualMap: { min: 0, max: 1, orient: 'horizontal', left: 'center', bottom: 0 },
     series: [{ type: 'heatmap', data: heatSeries }],
-  }), [tick, game.id]);
+  }), [tick, game.id, t]);
 
   const decisionOption = useMemo(() => ({
     grid: { top: 20, right: 10, bottom: 80, left: 70 },
@@ -388,12 +393,12 @@ const ArenaPage: React.FC = () => {
       trigger: 'item',
       formatter: (p: any) => {
         const d = p.data;
-        return `t = ${d.t}<br/>${d.player} played ${d.action}<br/>reward: ${d.reward}`;
+        return t('arena.tooltip.decision', { t: d.t, player: d.player, action: d.action, reward: d.reward });
       }
     },
     dataset: { source: decisionData },
-    xAxis: { type: 'value', name: 't' },
-    yAxis: { type: 'category', data: ['P1', 'P2'], inverse: true, name: 'player' },
+    xAxis: { type: 'value', name: t('arena.axis.t') },
+    yAxis: { type: 'category', data: [p1Label, p2Label], inverse: true, name: t('arena.axis.player') },
     dataZoom: [
       { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
       { type: 'slider', xAxisIndex: 0, height: 18, bottom: 48 },
@@ -418,30 +423,30 @@ const ArenaPage: React.FC = () => {
       itemStyle: { opacity: 0.9 },
       emphasis: { focus: 'series' },
     }],
-  }), [decisionData, actionCategories]);
+  }), [decisionData, actionCategories, p1Label, p2Label, t]);
 
   return (
     <div className="container page-animate">
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-header">
           <div>
-            <h2 className="page-title">Learning Dynamics Arena</h2>
+            <h2 className="page-title">{t('arena.title')}</h2>
             <p className="page-subtitle">
-              Run repeated games and visualize how online learning converges under different incentives.
+              {t('arena.subtitle')}
             </p>
           </div>
           <div className="section-meta">
             <div className="pill">
               <span className="pill-dot" />
-              Real-time simulation
+              {t('arena.pillRealtime')}
             </div>
             <div className="pill">
               <span className="pill-dot accent" />
-              Socket.IO back-end
+              {t('arena.pillSocket')}
             </div>
             <div className="pill">
               <span className="pill-dot" />
-              Heatmap + trajectory views
+              {t('arena.pillHeatmap')}
             </div>
           </div>
         </div>
@@ -460,7 +465,7 @@ const ArenaPage: React.FC = () => {
           onStart={() => { initState(seed); start(); }}
           onStop={() => stop()}
           onReset={() => reset()}
-          t={tRef.current}
+          currentT={tRef.current}
         />
       </div>
 
@@ -468,34 +473,34 @@ const ArenaPage: React.FC = () => {
         <div className="card">
           <div className="section-header">
             <div>
-              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Decision Trace</h3>
-              <p className="page-subtitle">See the exact actions taken by both players on every step.</p>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('arena.decisionTitle')}</h3>
+              <p className="page-subtitle">{t('arena.decisionSubtitle')}</p>
             </div>
             <div className="row" style={{ gap: 8 }}>
-              <button onClick={downloadCsv} disabled={!recsRef.current.length}>Download steps CSV</button>
+              <button onClick={downloadCsv} disabled={!recsRef.current.length}>{t('arena.downloadCsv')}</button>
             </div>
           </div>
           <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 320 }}>
-              <ChartBoundary>
+              <ChartBoundary errorText={t('common.chartError')}>
                 <ReactECharts echarts={echarts} option={decisionOption} style={{ height: 300 }} />
               </ChartBoundary>
             </div>
             <div className="col" style={{ flex: '0 0 320px', minWidth: 260, gap: 8 }}>
-              <div className="muted">Latest steps</div>
+              <div className="muted">{t('arena.latestSteps')}</div>
               <div style={{ border: '1px solid rgba(148, 163, 184, 0.35)', borderRadius: 12, padding: '0.6rem', background: 'rgba(15, 23, 42, 0.6)', maxHeight: 300, overflowY: 'auto' }}>
-                {recentSteps.length === 0 && <div className="muted">No steps recorded yet.</div>}
+                {recentSteps.length === 0 && <div className="muted">{t('arena.noSteps')}</div>}
                 {recentSteps.map((r) => {
                   const p1Act = game.acts1[r.a1] ?? String(r.a1);
                   const p2Act = game.acts2[r.a2] ?? String(r.a2);
                   return (
                     <div key={r.t} className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
-                      <div className="muted" style={{ minWidth: 52 }}>t = {r.t}</div>
+                      <div className="muted" style={{ minWidth: 52 }}>{t('arena.control.time', { t: r.t })}</div>
                       <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${actionColorMap.get(p1Act) ?? '#1e293b'}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>P1: {p1Act}</span>
-                        <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${actionColorMap.get(p2Act) ?? '#1e293b'}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>P2: {p2Act}</span>
-                        <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>r1: {r.r1}</span>
-                        <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(56,189,248,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>r2: {r.r2}</span>
+                        <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${actionColorMap.get(p1Act) ?? '#1e293b'}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>{t('arena.label.p1')} {p1Act}</span>
+                        <span className="pill" style={{ padding: '0.1rem 0.55rem', background: `${actionColorMap.get(p2Act) ?? '#1e293b'}33`, borderColor: 'rgba(148, 163, 184, 0.35)' }}>{t('arena.label.p2')} {p2Act}</span>
+                        <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>{t('arena.label.r1')} {r.r1}</span>
+                        <span className="pill" style={{ padding: '0.1rem 0.5rem', background: 'rgba(56,189,248,0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>{t('arena.label.r2')} {r.r2}</span>
                       </div>
                     </div>
                   );
@@ -508,33 +513,33 @@ const ArenaPage: React.FC = () => {
         <div className="card">
           <div className="section-header">
             <div>
-              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Average Reward (P1)</h3>
-              <p className="page-subtitle">Smoothed rewards over time with a moving window.</p>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('arena.avgRewardTitle')}</h3>
+              <p className="page-subtitle">{t('arena.avgRewardSubtitle')}</p>
             </div>
           </div>
-          <ChartBoundary>
+          <ChartBoundary errorText={t('common.chartError')}>
             <ReactECharts echarts={echarts} option={rewardOption} style={{ height: 260 }} />
           </ChartBoundary>
         </div>
         <div className="card">
           <div className="section-header">
             <div>
-              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Strategy Distribution (P1)</h3>
-              <p className="page-subtitle">Track how the mixed strategy evolves under Hedge updates.</p>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('arena.strategyTitle')}</h3>
+              <p className="page-subtitle">{t('arena.strategySubtitle')}</p>
             </div>
           </div>
-          <ChartBoundary>
+          <ChartBoundary errorText={t('common.chartError')}>
             <ReactECharts echarts={echarts} option={probsOption} style={{ height: 300 }} />
           </ChartBoundary>
         </div>
         <div className="card">
           <div className="section-header">
             <div>
-              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>Joint Action Frequency</h3>
-              <p className="page-subtitle">Empirical distribution over joint actions across the horizon.</p>
+              <h3 className="page-title" style={{ fontSize: '1.05rem' }}>{t('arena.heatTitle')}</h3>
+              <p className="page-subtitle">{t('arena.heatSubtitle')}</p>
             </div>
           </div>
-          <ChartBoundary>
+          <ChartBoundary errorText={t('common.chartError')}>
             <ReactECharts echarts={echarts} option={heatOption} style={{ height: 320 }} />
           </ChartBoundary>
         </div>
@@ -565,54 +570,55 @@ const Controls: React.FC<{
   onStart: () => void;
   onStop: () => void;
   onReset: () => void;
-  t: number;
-}> = ({ gameId, setGameId, steps, setSteps, seed, setSeed, lr, setLr, running, backendMode, setBackendMode, onStart, onStop, onReset, t }) => {
+  currentT: number;
+}> = ({ gameId, setGameId, steps, setSteps, seed, setSeed, lr, setLr, running, backendMode, setBackendMode, onStart, onStop, onReset, currentT }) => {
+  const { t } = useI18n();
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 12 }}>
       <div className="col" style={{ minWidth: 180 }}>
-        <div className="muted">Game</div>
+        <div className="muted">{t('arena.control.game')}</div>
         <select value={gameId} onChange={(e) => setGameId(e.target.value as GameId)}>
-          <option value="rps">Rock-Paper-Scissors</option>
-          <option value="mp">Matching Pennies</option>
-          <option value="pd">Prisoner's Dilemma(2x2)</option>
+          <option value="rps">{t('arena.control.rps')}</option>
+          <option value="mp">{t('arena.control.mp')}</option>
+          <option value="pd">{t('arena.control.pd')}</option>
         </select>
       </div>
       
       <div className="col" style={{ minWidth: 140 }}>
-        <div className="muted">Steps</div>
+        <div className="muted">{t('arena.control.steps')}</div>
         <input type="number" min={1} max={20000} value={steps} onChange={(e) => setSteps(parseInt(e.target.value || '1', 10))} />
       </div>
       <div className="col" style={{ minWidth: 160 }}>
-        <div className="muted">Seed</div>
+        <div className="muted">{t('arena.control.seed')}</div>
         <input value={seed} onChange={(e) => setSeed(e.target.value)} />
       </div>
       <div className="col" style={{ minWidth: 180 }}>
-        <div className="muted">Learning rate (Hedge)</div>
+        <div className="muted">{t('arena.control.lr')}</div>
         <input type="number" step={0.05} min={0.05} max={5} value={lr} onChange={(e) => setLr(parseFloat(e.target.value || '0.5'))} />
       </div>
       <div className="col" style={{ minWidth: 180 }}>
-        <div className="muted">Backend mode</div>
+        <div className="muted">{t('arena.control.backend')}</div>
         <label className="row" style={{ gap: 8, alignItems: 'center' }}>
           <input type="checkbox" checked={backendMode} onChange={(e) => setBackendMode(e.target.checked)} />
-          <span className="muted">Use server (Socket.IO)</span>
+          <span className="muted">{t('arena.control.backendLabel')}</span>
         </label>
       </div>
       <div className="row" style={{ gap: 8, marginLeft: 'auto' }}>
         {!running ? (
-          <button className="primary" onClick={onStart}>Start</button>
+          <button className="primary" onClick={onStart}>{t('arena.control.start')}</button>
         ) : (
-          <button onClick={onStop}>Stop</button>
+          <button onClick={onStop}>{t('arena.control.stop')}</button>
         )}
-        <button onClick={onReset}>Reset</button>
+        <button onClick={onReset}>{t('arena.control.reset')}</button>
       </div>
-      <div className="muted" style={{ marginLeft: 'auto' }}>t = {t}</div>
+      <div className="muted" style={{ marginLeft: 'auto' }}>{t('arena.control.time', { t: currentT })}</div>
     </div>
   );
 };
 
 export default ArenaPage;
 
-class ChartBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; msg?: string }>{
+class ChartBoundary extends React.Component<{ children: React.ReactNode; errorText?: string }, { hasError: boolean; msg?: string }>{
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
@@ -625,7 +631,7 @@ class ChartBoundary extends React.Component<{ children: React.ReactNode }, { has
     console.error('Chart error:', err);
   }
   render() {
-    if (this.state.hasError) return <div className="muted">Chart failed to render.</div>;
+    if (this.state.hasError) return <div className="muted">{this.props.errorText || 'Chart failed to render.'}</div>;
     return this.props.children as any;
   }
 }

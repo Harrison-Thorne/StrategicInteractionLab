@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { useAuth } from '../auth/AuthContext';
+import { useI18n } from '../i18n';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [message, setMessage] = useState<string>('');
+  const { t } = useI18n();
 
   useEffect(() => {
     async function run() {
@@ -24,55 +26,55 @@ const Dashboard: React.FC = () => {
         <div className="dashboard-art">
           <img
             src="https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=800&q=80"
-            alt="Interactive data visualization"
+            alt={t('dashboard.artAlt')}
           />
-          <div className="dashboard-art-label">Multi-agent dynamics</div>
+          <div className="dashboard-art-label">{t('dashboard.artLabel')}</div>
         </div>
         <div className="section-header">
           <div>
-            <h2 className="page-title">Hi, {user?.email}</h2>
+            <h2 className="page-title">{t('dashboard.greeting', { email: user?.email ?? '' })}</h2>
             <p className="page-subtitle">{message || '...'}</p>
           </div>
           <div className="section-meta">
             <div className="pill">
               <span className="pill-dot" />
-              🧪 Live Lab Session
+              🧪 {t('dashboard.live')}
             </div>
             <div className="pill">
               <span className="pill-dot accent" />
-              🎲 Game-theoretic Experiments
+              🎲 {t('dashboard.gameTheory')}
             </div>
           </div>
         </div>
         <div className="metric-grid">
           <div className="metric-item">
-            <div className="metric-label">Simulated Episodes (demo)</div>
+            <div className="metric-label">{t('dashboard.metricEpisodes')}</div>
             <div className="metric-value">
               <span className="metric-icon">Σ</span>
               1,280
             </div>
             <div className="metric-chip-row">
-              <span className="pill" style={{ padding: '0.15rem 0.55rem' }}>RPS / MP / PD</span>
+              <span className="pill" style={{ padding: '0.15rem 0.55rem' }}>{t('dashboard.metricEpisodesChip')}</span>
             </div>
           </div>
           <div className="metric-item">
-            <div className="metric-label">Strategies Tracked</div>
+            <div className="metric-label">{t('dashboard.metricStrategies')}</div>
             <div className="metric-value">
               <span className="metric-icon">π</span>
               12
             </div>
             <div className="metric-chip-row">
-              <span className="pill" style={{ padding: '0.15rem 0.55rem' }}>Hedge · Regret · FP</span>
+              <span className="pill" style={{ padding: '0.15rem 0.55rem' }}>{t('dashboard.metricStrategiesChip')}</span>
             </div>
           </div>
           <div className="metric-item">
-            <div className="metric-label">Evaluation Runs</div>
+            <div className="metric-label">{t('dashboard.metricEval')}</div>
             <div className="metric-value">
               <span className="metric-icon">★</span>
               36
             </div>
             <div className="metric-chip-row">
-              <span className="pill" style={{ padding: '0.15rem 0.55rem' }}>Exploration snapshot</span>
+              <span className="pill" style={{ padding: '0.15rem 0.55rem' }}>{t('dashboard.metricEvalChip')}</span>
             </div>
           </div>
         </div>
